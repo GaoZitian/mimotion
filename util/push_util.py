@@ -25,13 +25,17 @@ class PushConfig:
                  push_plus_max=30,
                  push_wechat_webhook_key=None,
                  telegram_bot_token=None,
-                 telegram_chat_id=None):
+                 telegram_chat_id=None,
+                 wxpush_url=None,
+                 wxpush_token=None):
         self.push_plus_token = push_plus_token
         self.push_plus_hour = push_plus_hour
         self.push_plus_max = int(push_plus_max) if push_plus_max else 30
         self.push_wechat_webhook_key = push_wechat_webhook_key
         self.telegram_bot_token = telegram_bot_token
         self.telegram_chat_id = telegram_chat_id
+        self.wxpush_url = wxpush_url
+        self.wxpush_token = wxpush_token
 
 
 def push_plus(token, title, content):
@@ -135,6 +139,46 @@ def push_telegram_bot(bot_token, chat_id, content):
         print(f"telegram bot推送发生未知异常: {e}")
 
 
+def push_wxpush(url, token, title, content):
+    """
+    推送到 wxpush（微信消息推送服务，基于 Cloudflare Workers）
+    wxpush 接口：GET /wxsend?token=xxx&title=xxx&content=xxx
+    :param url: wxpush Worker 基础地址（不含 /wxsend，代码里拼接）
+    :param token: wxpush API_TOKEN
+    :param title: 推送标题
+    :param content: 推送内容
+    :return: none
+    """
+    if not url or not token:
+        print("未配置 WXPUSH_URL 或 WXPUSH_TOKEN，跳过wxpush推送")
+        return
+    requestUrl = f"{url.rstrip('/')}/wxsend"
+    payload = {
+        "token": token,
+        "title": title,
+        "content": content
+    }
+    try:
+        response = requests.get(requestUrl, params=payload, timeout=10)
+        if response.status_code == 200:
+            # wxpush 以 HTTP 200 表示推送成功，响应体为 {"msg": "Successfully sent..."}
+            try:
+                json_res = response.json()
+                print(f"wxpush推送成功：{json_res.get('msg', json.dumps(json_res, ensure_ascii=False))}")
+            except Exception:
+                print(f"wxpush推送成功：HTTP {response.status_code}")
+        else:
+            try:
+                json_res = response.json()
+                print(f"wxpush推送失败: HTTP {response.status_code} {json_res.get('msg', '')}")
+            except Exception:
+                print(f"wxpush推送失败: HTTP {response.status_code}")
+    except requests.exceptions.RequestException as e:
+        print(f"wxpush推送网络异常: {e}")
+    except Exception as e:
+        print(f"wxpush推送发生未知异常: {e}")
+
+
 def push_results(exec_results, summary, config: PushConfig):
     """推送所有结果"""
     if not_in_push_time_range(config):
@@ -142,6 +186,7 @@ def push_results(exec_results, summary, config: PushConfig):
     push_to_push_plus(exec_results, summary, config)
     push_to_wechat_webhook(exec_results, summary, config)
     push_to_telegram_bot(exec_results, summary, config)
+    push_to_wxpush(exec_results, summary, config)
 
 
 def not_in_push_time_range(config: PushConfig) -> bool:
@@ -239,3 +284,22 @@ def push_to_telegram_bot(exec_results, summary, config: PushConfig):
         push_telegram_bot(config.telegram_bot_token, config.telegram_chat_id, html)
     else:
         print("未配置 TELEGRAM_BOT_TOKEN 或 TELEGRAM_CHAT_ID 跳过telegram推送")
+
+
+def push_to_wxpush(exec_results, summary, config: PushConfig):
+    """推送到wxpush（微信）"""
+    if (config.wxpush_url and config.wxpush_url != '' and
+            config.wxpush_token and config.wxpush_token != '' and config.wxpush_token != 'NO'):
+        content = f"{summary}"
+        if len(exec_results) >= config.push_plus_max:
+            content += '\n账号数量过多，详细情况请前往github actions中查看'
+        else:
+            for exec_result in exec_results:
+                success = exec_result['success']
+                if success is not None and success is True:
+                    content += f'\n账号：{exec_result["user"]} 刷步数成功，接口返回：{exec_result["msg"]}'
+                else:
+                    content += f'\n账号：{exec_result["user"]} 刷步数失败，失败原因：{exec_result["msg"]}'
+        push_wxpush(config.wxpush_url, config.wxpush_token, f"{format_now()} 刷步数通知", content)
+    else:
+        print("未配置 WXPUSH_URL 或 WXPUSH_TOKEN 跳过wxpush推送")

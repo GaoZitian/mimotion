@@ -322,6 +322,9 @@ if __name__ == "__main__":
             "TELEGRAM_CHAT_ID": os.environ.get("TELEGRAM_CHAT_ID", ""),
             "WXPUSH_URL": os.environ.get("WXPUSH_URL", ""),
             "WXPUSH_TOKEN": os.environ.get("WXPUSH_TOKEN", ""),
+            "WXPUSH_USERID": os.environ.get("WXPUSH_USERID", ""),
+            "WXPUSH_TEMPLATE_ID": os.environ.get("WXPUSH_TEMPLATE_ID", ""),
+            "WXPUSH_BASE_URL": os.environ.get("WXPUSH_BASE_URL", ""),
             "SLEEP_GAP": os.environ.get("SLEEP_GAP", "5"),
             "USE_CONCURRENT": os.environ.get("USE_CONCURRENT", "False")
         }
@@ -339,7 +342,10 @@ if __name__ == "__main__":
         telegram_bot_token=config.get('TELEGRAM_BOT_TOKEN'),
         telegram_chat_id=config.get('TELEGRAM_CHAT_ID'),
         wxpush_url=config.get('WXPUSH_URL'),
-        wxpush_token=config.get('WXPUSH_TOKEN')
+        wxpush_token=config.get('WXPUSH_TOKEN'),
+        wxpush_userid=config.get('WXPUSH_USERID'),
+        wxpush_template_id=config.get('WXPUSH_TEMPLATE_ID'),
+        wxpush_base_url=config.get('WXPUSH_BASE_URL')
     )
     sleep_seconds = config.get('SLEEP_GAP')
     if sleep_seconds is None or sleep_seconds == '':

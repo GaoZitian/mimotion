@@ -27,7 +27,10 @@ class PushConfig:
                  telegram_bot_token=None,
                  telegram_chat_id=None,
                  wxpush_url=None,
-                 wxpush_token=None):
+                 wxpush_token=None,
+                 wxpush_userid=None,
+                 wxpush_template_id=None,
+                 wxpush_base_url=None):
         self.push_plus_token = push_plus_token
         self.push_plus_hour = push_plus_hour
         self.push_plus_max = int(push_plus_max) if push_plus_max else 30
@@ -36,6 +39,9 @@ class PushConfig:
         self.telegram_chat_id = telegram_chat_id
         self.wxpush_url = wxpush_url
         self.wxpush_token = wxpush_token
+        self.wxpush_userid = wxpush_userid
+        self.wxpush_template_id = wxpush_template_id
+        self.wxpush_base_url = wxpush_base_url
 
 
 def push_plus(token, title, content):
@@ -139,7 +145,8 @@ def push_telegram_bot(bot_token, chat_id, content):
         print(f"telegram bot推送发生未知异常: {e}")
 
 
-def push_wxpush(url, token, title, content):
+def push_wxpush(url, token, title, content,
+                userid=None, template_id=None, base_url=None):
     """
     推送到 wxpush（微信消息推送服务，基于 Cloudflare Workers）
     wxpush 接口：GET /wxsend?token=xxx&title=xxx&content=xxx
@@ -147,6 +154,9 @@ def push_wxpush(url, token, title, content):
     :param token: wxpush API_TOKEN
     :param title: 推送标题
     :param content: 推送内容
+    :param userid: 可选，覆盖 wxpush 默认接收用户（WXPUSH_USERID）
+    :param template_id: 可选，覆盖 wxpush 默认模板（WXPUSH_TEMPLATE_ID）
+    :param base_url: 可选，覆盖点击消息后的跳转地址（WXPUSH_BASE_URL）
     :return: none
     """
     if not url or not token:
@@ -158,6 +168,13 @@ def push_wxpush(url, token, title, content):
         "title": title,
         "content": content
     }
+    # 可选配置：非空时加入 payload，覆盖 wxpush 服务端默认
+    if userid:
+        payload["userid"] = userid
+    if template_id:
+        payload["template_id"] = template_id
+    if base_url:
+        payload["base_url"] = base_url
     try:
         response = requests.get(requestUrl, params=payload, timeout=10)
         if response.status_code == 200:
@@ -300,6 +317,9 @@ def push_to_wxpush(exec_results, summary, config: PushConfig):
                     content += f'\n账号：{exec_result["user"]} 刷步数成功，接口返回：{exec_result["msg"]}'
                 else:
                     content += f'\n账号：{exec_result["user"]} 刷步数失败，失败原因：{exec_result["msg"]}'
-        push_wxpush(config.wxpush_url, config.wxpush_token, f"{format_now()} 刷步数通知", content)
+        push_wxpush(config.wxpush_url, config.wxpush_token, f"{format_now()} 刷步数通知", content,
+                    userid=config.wxpush_userid,
+                    template_id=config.wxpush_template_id,
+                    base_url=config.wxpush_base_url)
     else:
         print("未配置 WXPUSH_URL 或 WXPUSH_TOKEN 跳过wxpush推送")
